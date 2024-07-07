@@ -11,7 +11,7 @@ import (
 
 type Config struct {
 	Env         string
-	ExternalApi string
+	ExternalAPI string
 	*Storage
 	*Server
 }

@@ -5,6 +5,6 @@ type User struct {
 	Surname        string `json:"surname,omitempty"`
 	Patronymic     string `json:"patronymic,omitempty"`
 	Address        string `json:"address,omitempty"`
-	PassportSerie  int64  `json:"passport_serie,omitempty"`
-	PassportNumber int64  `json:"passport_number,omitempty"`
+	PassportSerie  int    `json:"passport_serie,omitempty"`
+	PassportNumber int    `json:"passport_number,omitempty"`
 }

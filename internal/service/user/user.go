@@ -1,9 +1,15 @@
 package user
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+
+	"time-tracker/internal/lib/logger/sl"
 	"time-tracker/internal/models"
+
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 var (
@@ -12,37 +18,84 @@ var (
 )
 
 type Storage interface {
+	RemoveUser(ctx context.Context, uuid string) error
+	UpdateUser(ctx context.Context, fields, values []string) (*models.User, error)
 }
 
-type PeopleRepo interface {
+type ExternalAPI interface {
 }
 
 type Service struct {
-	storage        Storage
-	peopleInfoRepo PeopleRepo
-	log            *slog.Logger
+	storage     Storage
+	externalAPI ExternalAPI
+	log         *slog.Logger
 }
 
-func New(storage Storage, peopleInfoRepo PeopleRepo, log *slog.Logger) *Service {
+func New(storage Storage, externalAPI ExternalAPI, log *slog.Logger) *Service {
 	return &Service{
-		storage:        storage,
-		peopleInfoRepo: peopleInfoRepo,
-		log:            log,
+		storage:     storage,
+		externalAPI: externalAPI,
+		log:         log,
 	}
 }
 
-func (s *Service) GetUsers(page int, filter string) ([]models.User, error) {
+func (s *Service) CreateUser(ctx context.Context, passportSerie int, passportNumber int) error {
 	panic("unimplemented")
 }
 
-func (s *Service) RemoveUserByUUID(uuid string) error {
+func (s *Service) GetUsers(ctx context.Context, page int, filter string) ([]models.User, error) {
 	panic("unimplemented")
 }
 
-func (s *Service) UpdateUserInfo(userInfo *models.User) (*models.User, error) {
-	panic("unimplemented")
+func (s *Service) UpdateUserInfo(ctx context.Context, userInfo *models.User) (*models.User, error) {
+	const op = "service.user.RemoveUserByUUID"
+
+	log := s.log.With(
+		slog.String("op", op),
+		slog.String("req_id", middleware.GetReqID(ctx)),
+	)
+
+	var fields []string
+	var values []string
+	order := 1
+
+	if userInfo.Name != "" {
+		fields = append(fields, fmt.Sprintf("name = $%d", order))
+		values = append(values, userInfo.Name)
+		order++
+	} else if userInfo.Surname != "" {
+		fields = append(fields, fmt.Sprintf("surname = $%d", order))
+		values = append(values, userInfo.Surname)
+		order++
+	} else if userInfo.Patronymic != "" {
+		fields = append(fields, fmt.Sprintf("patronymic = $%d", order))
+		values = append(values, userInfo.Patronymic)
+	}
+
+	log.Debug("new user info", slog.Any("fields", fields), slog.Any("values", values))
+
+	user, err := s.storage.UpdateUser(ctx, fields, values)
+	if err != nil {
+		log.Error("failed to update user info", sl.Error(err))
+		return nil, err
+	}
+
+	return user, nil
 }
 
-func (s *Service) CreateUser(passportSerie int, passportNumber int) error {
-	panic("unimplemented")
+func (s *Service) RemoveUserByUUID(ctx context.Context, uuid string) error {
+	const op = "service.user.RemoveUserByUUID"
+
+	log := s.log.With(
+		slog.String("op", op),
+		slog.String("req_id", middleware.GetReqID(ctx)),
+	)
+
+	err := s.storage.RemoveUser(ctx, uuid)
+	if err != nil {
+		log.Error("failed to remove user by uuid", sl.Error(err))
+		return err
+	}
+
+	return nil
 }

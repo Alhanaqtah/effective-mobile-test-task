@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -19,10 +20,10 @@ import (
 )
 
 type Service interface {
-	CreateUser(passportSerie, passportNumber int) error
-	GetUsers(page int, filter string) ([]models.User, error)
-	UpdateUserInfo(userInfo *models.User) (*models.User, error)
-	RemoveUserByUUID(uuid string) error
+	CreateUser(ctx context.Context, passportSerie, passportNumber int) error
+	GetUsers(ctx context.Context, page int, filter string) ([]models.User, error)
+	UpdateUserInfo(ctx context.Context, userInfo *models.User) (*models.User, error)
+	RemoveUserByUUID(ctx context.Context, uuid string) error
 }
 
 type Handler struct {
@@ -44,47 +45,6 @@ func (h *Handler) Register() func(r chi.Router) {
 		r.Patch("/{uuid}", h.updateUser)
 		r.Delete("/{uuid}", h.deleteUser)
 	}
-}
-
-func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {
-	const op = "controller.user.getUsers"
-
-	log := h.log.With(
-		slog.String("op", op),
-		slog.String("req_id", middleware.GetReqID(r.Context())),
-	)
-
-	// Getting `page` param & validation
-	var page int
-	p := r.URL.Query().Get("page")
-	if p == "" {
-		page = 1
-		log.Debug(`set "page" value to default`, slog.Int("page", page))
-	} else {
-		page, err := strconv.Atoi(p)
-		if err != nil || page < 1 {
-			log.Error(`error while parsing "page" param`, sl.Error(err))
-			page = 1
-			log.Debug(`set "page" value to default`, slog.Int("page", page))
-		} else {
-			log.Debug(`validate "page" value`, slog.Int("page", page))
-		}
-	}
-
-	// Getting `filter` param
-	filter := r.URL.Query().Get("filter")
-
-	log.Debug("getting all users", slog.Int("page", page), slog.String("filter", filter))
-
-	users, err := h.service.GetUsers(page, filter)
-	if err != nil {
-		log.Error("error while getting all users", sl.Error(err))
-		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, resp.Err("Internal error"))
-		return
-	}
-
-	render.JSON(w, r, users)
 }
 
 func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
@@ -123,9 +83,8 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.service.CreateUser(passportSerie, passportNumber)
+	err = h.service.CreateUser(r.Context(), passportSerie, passportNumber)
 	if err != nil {
-		log.Error("failed to create user", sl.Error(err))
 		if errors.Is(err, service.ErrExists) {
 			render.Status(r, http.StatusConflict)
 			render.JSON(w, r, resp.Err("User already exists"))
@@ -136,6 +95,46 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {
+	const op = "controller.user.getUsers"
+
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("req_id", middleware.GetReqID(r.Context())),
+	)
+
+	// Getting `page` param & validation
+	var page int
+	p := r.URL.Query().Get("page")
+	if p == "" {
+		page = 1
+		log.Debug(`set "page" value to default`, slog.Int("page", page))
+	} else {
+		page, err := strconv.Atoi(p)
+		if err != nil || page < 1 {
+			log.Error(`error while parsing "page" param`, sl.Error(err))
+			page = 1
+			log.Debug(`set "page" value to default`, slog.Int("page", page))
+		} else {
+			log.Debug(`validate "page" value`, slog.Int("page", page))
+		}
+	}
+
+	// Getting `filter` param
+	filter := r.URL.Query().Get("filter")
+
+	log.Debug("getting all users", slog.Int("page", page), slog.String("filter", filter))
+
+	users, err := h.service.GetUsers(r.Context(), page, filter)
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, resp.Err("Internal error"))
+		return
+	}
+
+	render.JSON(w, r, users)
 }
 
 func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
@@ -158,10 +157,9 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.service.UpdateUserInfo(userInfo)
+	user, err := h.service.UpdateUserInfo(r.Context(), userInfo)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
-			log.Error("failed to remove user", sl.Error(err))
 			render.Status(r, http.StatusNotFound)
 			render.JSON(w, r, resp.Err("User not found"))
 			return
@@ -190,7 +188,7 @@ func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug("removing user", slog.String("user_uuid", uuid))
 
-	err := h.service.RemoveUserByUUID(uuid)
+	err := h.service.RemoveUserByUUID(r.Context(), uuid)
 	if err != nil {
 		log.Error("failed to remove user", sl.Error(err))
 		if errors.Is(err, service.ErrUserNotFound) {

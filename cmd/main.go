@@ -33,7 +33,7 @@ func main() {
 		log.Error("storage initial error: %s", err)
 	}
 
-	externalAPI := externalapi.New(cfg.ExternalApi)
+	externalAPI := externalapi.New(cfg.ExternalAPI)
 
 	// Service layer
 	usersService := usersService.New(storage, externalAPI, log)
