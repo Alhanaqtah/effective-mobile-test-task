@@ -20,6 +20,7 @@ var (
 type Storage interface {
 	RemoveUser(ctx context.Context, uuid string) error
 	UpdateUser(ctx context.Context, fields, values []string) (*models.User, error)
+	GetUsers(ctx context.Context, limit, offset int) ([]models.User, error)
 }
 
 type ExternalAPI interface {
@@ -44,7 +45,23 @@ func (s *Service) CreateUser(ctx context.Context, passportSerie int, passportNum
 }
 
 func (s *Service) GetUsers(ctx context.Context, page int, filter string) ([]models.User, error) {
-	panic("unimplemented")
+	const op = "service.user.GetUsers"
+
+	log := s.log.With(
+		slog.String("op", op),
+		slog.String("req_id", middleware.GetReqID(ctx)),
+	)
+
+	const limit = 10
+	offset := (page - 1) * limit
+
+	users, err := s.storage.GetUsers(ctx, limit, offset)
+	if err != nil {
+		log.Error("error while getting users", sl.Error(err))
+		return nil, err
+	}
+
+	return users, nil
 }
 
 func (s *Service) UpdateUserInfo(ctx context.Context, userInfo *models.User) (*models.User, error) {
