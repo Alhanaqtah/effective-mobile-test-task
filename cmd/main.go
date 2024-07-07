@@ -30,7 +30,8 @@ func main() {
 	// Data layer
 	storage, err := storage.New(cfg.Storage)
 	if err != nil {
-		log.Error("storage initial error: %s", err)
+		log.Error("storage initial error", sl.Error(err))
+		return
 	}
 
 	externalAPI := externalapi.New(cfg.ExternalAPI)
@@ -68,7 +69,7 @@ func main() {
 	// Start server
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Error("server error: %s", err)
+			log.Error("server error", sl.Error(err))
 		}
 	}()
 
