@@ -1,12 +1,21 @@
 package response
 
 const (
+	StatusOK  = "OK"
 	StatusErr = "Error"
 )
 
 type Response struct {
-	Status string `json:"status"`
-	Error  string `json:"error,omitempty"`
+	Status  string `json:"status"`
+	Message string `json:"error,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+func Ok(msg string) Response {
+	return Response{
+		Status:  StatusOK,
+		Message: msg,
+	}
 }
 
 func Err(errMsg string) Response {
