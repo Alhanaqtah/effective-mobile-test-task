@@ -7,6 +7,7 @@ import (
 
 	"time-tracker/internal/config"
 	"time-tracker/internal/models"
+	"time-tracker/internal/repository"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -50,10 +51,7 @@ func New(cfg *config.Storage) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	err = m.Up()
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
+	m.Up()
 
 	return &Storage{pool: pool}, nil
 }
@@ -81,9 +79,13 @@ func (s *Storage) UpdateUser(ctx context.Context, fields, values []string) (*mod
 func (s *Storage) RemoveUser(ctx context.Context, uuid string) error {
 	const op = "repository.postgres.RemoveUser"
 
-	_, err := s.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, uuid)
+	ct, err := s.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, uuid)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("%s: %w", op, repository.ErrUserNotFound)
 	}
 
 	return nil

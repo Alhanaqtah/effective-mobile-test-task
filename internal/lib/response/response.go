@@ -7,7 +7,7 @@ const (
 
 type Response struct {
 	Status  string `json:"status"`
-	Message string `json:"error,omitempty"`
+	Message string `json:"message,omitempty"`
 	Error   string `json:"error,omitempty"`
 }
 

@@ -1,17 +1,17 @@
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY,
-    name VARCHAR(50),
-    surname VARCHAR(50),
-    patronymic VARCHAR(50),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(50) NOT NULL,
+    surname VARCHAR(50) NOT NULL,
+    patronymic VARCHAR(50) NOT NULL,
     address TEXT,
-    passport_serie INTEGER UNIQUE,
-    passport_number INTEGER UNIQUE
+    passport_serie INTEGER UNIQUE NOT NULL,
+    passport_number INTEGER UNIQUE NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),  
-    title TEXT,
+    title TEXT NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
     done_at TIMESTAMP DEFAULT NULL

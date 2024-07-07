@@ -190,7 +190,6 @@ func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	err := h.service.RemoveUserByUUID(r.Context(), uuid)
 	if err != nil {
-		log.Error("failed to remove user", sl.Error(err))
 		if errors.Is(err, service.ErrUserNotFound) {
 			render.Status(r, http.StatusNotFound)
 			render.JSON(w, r, resp.Err("User not found"))

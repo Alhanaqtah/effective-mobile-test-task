@@ -44,10 +44,11 @@ func main() {
 
 	// Init router
 	r := chi.NewRouter()
+	chi.NewMux()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	// r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	r.Route("/users", usersHandler.Register())
@@ -56,9 +57,9 @@ func main() {
 	srv := http.Server{
 		Handler:      r,
 		Addr:         cfg.Server.Host + ":" + cfg.Server.Port,
-		ReadTimeout:  cfg.Server.Timeout,
-		WriteTimeout: cfg.Server.Timeout,
-		IdleTimeout:  cfg.Server.Timeout,
+		ReadTimeout:  cfg.Server.Timeout * time.Second,
+		WriteTimeout: cfg.Server.Timeout * time.Second,
+		IdleTimeout:  cfg.Server.Timeout * time.Second,
 	}
 
 	log.Info("server initialized")

@@ -8,6 +8,7 @@ import (
 
 	"time-tracker/internal/lib/logger/sl"
 	"time-tracker/internal/models"
+	"time-tracker/internal/repository"
 
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -111,6 +112,9 @@ func (s *Service) RemoveUserByUUID(ctx context.Context, uuid string) error {
 	err := s.storage.RemoveUser(ctx, uuid)
 	if err != nil {
 		log.Error("failed to remove user by uuid", sl.Error(err))
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ErrUserNotFound
+		}
 		return err
 	}
 
