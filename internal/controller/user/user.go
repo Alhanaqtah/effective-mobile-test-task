@@ -87,56 +87,56 @@ func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, users)
 }
 
-// func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
-// 	const op = "controller.user.createUser"
+func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
+	const op = "controller.user.createUser"
 
-// 	log := h.log.With(
-// 		slog.String("op", op),
-// 		slog.String("req_id", middleware.GetReqID(r.Context())),
-// 	)
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("req_id", middleware.GetReqID(r.Context())),
+	)
 
-// 	var credentials *request.CreateUser
-// 	if err := render.DecodeJSON(r.Body, &credentials); err != nil {
-// 		log.Error("failed to decode request body", sl.Error(err))
-// 		render.Status(r, http.StatusInternalServerError)
-// 		render.JSON(w, r, resp.Err("Internal Error"))
-// 		return
-// 	}
+	var credentials *request.CreateUser
+	if err := render.DecodeJSON(r.Body, &credentials); err != nil {
+		log.Error("failed to decode request body", sl.Error(err))
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, resp.Err("Internal Error"))
+		return
+	}
 
-// 	log.Debug("creating new user", slog.String("passport_number", credentials.PassportNumber))
+	log.Debug("creating new user", slog.String("passport_number", credentials.PassportNumber))
 
-// 	passport := strings.Split(credentials.PassportNumber, " ")
+	passport := strings.Split(credentials.PassportNumber, " ")
 
-// 	passportSerie, err := strconv.Atoi(passport[0])
-// 	if err != nil {
-// 		log.Error("failed to get passport serie", sl.Error(err))
-// 		render.Status(r, http.StatusBadRequest)
-// 		render.JSON(w, r, resp.Err("Invalid passport serie"))
-// 		return
-// 	}
+	passportSerie, err := strconv.Atoi(passport[0])
+	if err != nil {
+		log.Error("failed to get passport serie", sl.Error(err))
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, resp.Err("Invalid passport serie"))
+		return
+	}
 
-// 	passportNumber, err := strconv.Atoi(passport[1])
-// 	if err != nil {
-// 		log.Error("failed to get passport number", sl.Error(err))
-// 		render.Status(r, http.StatusBadRequest)
-// 		render.JSON(w, r, resp.Err("Invalid passport number"))
-// 		return
-// 	}
+	passportNumber, err := strconv.Atoi(passport[1])
+	if err != nil {
+		log.Error("failed to get passport number", sl.Error(err))
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, resp.Err("Invalid passport number"))
+		return
+	}
 
-// 	err = h.service.CreateUser(passportSerie, passportNumber)
-// 	if err != nil {
-// 		log.Error("failed to create user", sl.Error(err))
-// 		if errors.Is(err, service.ErrExists) {
-// 			render.Status(r, http.StatusConflict)
-// 			render.JSON(w, r, resp.Err("User already exists"))
-// 			return
-// 		} else {
-// 			render.Status(r, http.StatusInternalServerError)
-// 			render.JSON(w, r, resp.Err("Internal error"))
-// 			return
-// 		}
-// 	}
-// }
+	err = h.service.CreateUser(passportSerie, passportNumber)
+	if err != nil {
+		log.Error("failed to create user", sl.Error(err))
+		if errors.Is(err, service.ErrExists) {
+			render.Status(r, http.StatusConflict)
+			render.JSON(w, r, resp.Err("User already exists"))
+			return
+		} else {
+			render.Status(r, http.StatusInternalServerError)
+			render.JSON(w, r, resp.Err("Internal error"))
+			return
+		}
+	}
+}
 
 func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.user.updateUser"
