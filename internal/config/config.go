@@ -10,8 +10,8 @@ import (
 )
 
 type Config struct {
-	Env          string
-	PeopleApiURL string
+	Env         string
+	ExternalApi string
 	*Storage
 	*Server
 }

@@ -13,6 +13,7 @@ import (
 	usersHandler "time-tracker/internal/controller/user"
 	"time-tracker/internal/lib/logger"
 	"time-tracker/internal/lib/logger/sl"
+	"time-tracker/internal/repository/externalapi"
 	storage "time-tracker/internal/repository/postgres"
 	usersService "time-tracker/internal/service/user"
 
@@ -31,10 +32,11 @@ func main() {
 	if err != nil {
 		log.Error("storage initial error: %s", err)
 	}
-	// TODO: init peopleinfo repository
+
+	externalAPI := externalapi.New(cfg.ExternalApi)
 
 	// Service layer
-	usersService := usersService.New(storage, log)
+	usersService := usersService.New(storage, externalAPI, log)
 
 	// Controllers layer
 	usersHandler := usersHandler.New(usersService, log)
