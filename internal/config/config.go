@@ -43,7 +43,7 @@ func MustLoad() *Config {
 
 	return &Config{
 		os.Getenv("ENV"),
-		os.Getenv("PEOPLE_API_URL"),
+		os.Getenv("EXTERNAL_API_URL"),
 		&Storage{
 			User:     os.Getenv("POSTGRES_USER"),
 			Password: os.Getenv("POSTGRES_PASSWORD"),

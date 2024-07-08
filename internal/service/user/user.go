@@ -21,9 +21,11 @@ type Storage interface {
 	RemoveUser(ctx context.Context, uuid string) error
 	UpdateUser(ctx context.Context, fields []string, values []string) (*models.User, error)
 	GetUsers(ctx context.Context, limit, offset int, filter string) ([]models.User, error)
+	CreateUser(ctx context.Context, user *models.User) (*models.User, error)
 }
 
 type ExternalAPI interface {
+	GetUserInfo(passportSerie, passportNumber int) (*models.User, error)
 }
 
 type Service struct {
@@ -40,8 +42,30 @@ func New(storage Storage, externalAPI ExternalAPI, log *slog.Logger) *Service {
 	}
 }
 
-func (s *Service) CreateUser(ctx context.Context, passportSerie int, passportNumber int) error {
-	panic("iuhiluhioyoib")
+func (s *Service) CreateUser(ctx context.Context, passportSerie, passportNumber int) (*models.User, error) {
+	const op = "service.user.CreateUser"
+
+	log := s.log.With(slog.String("op", op))
+
+	u, err := s.externalAPI.GetUserInfo(passportSerie, passportNumber)
+	if err != nil {
+		log.Error("failed to get user info from external api", sl.Error(err))
+		return nil, err
+	}
+
+	u.PassportSerie = passportSerie
+	u.PassportNumber = passportNumber
+
+	user, err := s.storage.CreateUser(ctx, u)
+	if err != nil {
+		log.Error("failed to save user in storage", sl.Error(err))
+		if errors.Is(err, repository.ErrExists) {
+			return nil, ErrExists
+		}
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (s *Service) GetUsers(ctx context.Context, page int, filter string) ([]models.User, error) {

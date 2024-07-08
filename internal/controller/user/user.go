@@ -20,7 +20,7 @@ import (
 )
 
 type Service interface {
-	CreateUser(ctx context.Context, passportSerie, passportNumber int) error
+	CreateUser(ctx context.Context, passportSerie, passportNumber int) (*models.User, error)
 	GetUsers(ctx context.Context, page int, filter string) ([]models.User, error)
 	UpdateUserInfo(ctx context.Context, userInfo *models.User) (*models.User, error)
 	RemoveUserByUUID(ctx context.Context, uuid string) error
@@ -63,6 +63,13 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if credentials.PassportNumber == "" {
+		log.Debug("request body is empty")
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, resp.Err("Request body is empty"))
+		return
+	}
+
 	log.Debug("creating new user", slog.String("passport_number", credentials.PassportNumber))
 
 	passport := strings.Split(credentials.PassportNumber, " ")
@@ -83,7 +90,7 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.service.CreateUser(r.Context(), passportSerie, passportNumber)
+	user, err := h.service.CreateUser(r.Context(), passportSerie, passportNumber)
 	if err != nil {
 		if errors.Is(err, service.ErrExists) {
 			render.Status(r, http.StatusConflict)
@@ -95,6 +102,11 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	log.Debug("user created successfully")
+
+	render.Status(r, http.StatusCreated)
+	render.JSON(w, r, user)
 }
 
 func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {

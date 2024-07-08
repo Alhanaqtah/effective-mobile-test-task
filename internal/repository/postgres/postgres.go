@@ -13,6 +13,8 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -56,6 +58,27 @@ func New(cfg *config.Storage) (*Storage, error) {
 	m.Up()
 
 	return &Storage{pool: pool}, nil
+}
+
+func (s *Storage) CreateUser(ctx context.Context, user *models.User) (*models.User, error) {
+	const op = "repository.postgresGetUsers"
+
+	_, err := s.pool.Exec(ctx,
+		"INSERT INTO users (name, surname, patronymic, address, passport_serie, passport_number) VALUES ($1, $2, $3, $4, $5, $6)",
+		user.Name, user.Surname, user.Patronymic, user.Address, user.PassportSerie, user.PassportNumber,
+	)
+	if err != nil {
+		var pgError *pgconn.PgError
+		if errors.As(err, &pgError) {
+			if pgError.Code == pgerrcode.UniqueViolation {
+				return nil, fmt.Errorf("%s: %w", op, repository.ErrExists)
+			}
+		}
+
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return user, nil
 }
 
 func (s *Storage) GetUsers(ctx context.Context, limit int, offset int, filter string) ([]models.User, error) {
