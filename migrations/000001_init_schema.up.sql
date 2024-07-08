@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     user_id UUID REFERENCES users(id),  
     title TEXT NOT NULL,
     description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+    done BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     done_at TIMESTAMP DEFAULT NULL
 );

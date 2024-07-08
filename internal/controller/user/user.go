@@ -149,19 +149,26 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug("patching user info", slog.String("user_uuid", uuid))
 
-	var userInfo *models.User
-	if err := render.DecodeJSON(r.Body, userInfo); err != nil {
+	var userInfo models.User
+	if err := render.DecodeJSON(r.Body, &userInfo); err != nil {
 		log.Error("failed to decode request body", sl.Error(err))
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, resp.Err("Internal Error"))
 		return
 	}
 
-	user, err := h.service.UpdateUserInfo(r.Context(), userInfo)
+	// Set uuid from user
+	userInfo.ID = uuid
+
+	user, err := h.service.UpdateUserInfo(r.Context(), &userInfo)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			render.Status(r, http.StatusNotFound)
 			render.JSON(w, r, resp.Err("User not found"))
+			return
+		} else if errors.Is(err, service.ErrEmptyBody) {
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, resp.Err("Request body is empty"))
 			return
 		} else {
 			render.Status(r, http.StatusInternalServerError)

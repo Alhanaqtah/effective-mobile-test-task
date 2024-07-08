@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 )
@@ -60,16 +62,26 @@ func (s *Storage) GetUsers(ctx context.Context, limit int, offset int, filter st
 	panic("unimplemented")
 }
 
-func (s *Storage) UpdateUser(ctx context.Context, fields, values []string) (*models.User, error) {
+func (s *Storage) UpdateUser(ctx context.Context, fields []string, values []string) (*models.User, error) {
 	const op = "repository.postgres.UpdateUser"
 
-	q := fmt.Sprintf("UPDATE users SET %s RETURNING id, name, surname, patronymic, address, password_serie, passwort_number", strings.Join(fields, ", "))
+	f := strings.Join(fields[:len(fields)], ", ")
 
-	row := s.pool.QueryRow(ctx, q, values)
+	v := make([]interface{}, len(values))
+	for i, j := range values {
+		v[i] = j
+	}
+
+	q := fmt.Sprintf("UPDATE users SET %s WHERE id = $%d RETURNING id, name, surname, patronymic, address, passport_serie, passport_number", f, len(values))
+
+	row := s.pool.QueryRow(ctx, q, v...)
 
 	var user models.User
 	err := row.Scan(&user.ID, &user.Name, &user.Surname, &user.Patronymic, &user.Address, &user.PassportSerie, &user.PassportNumber)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("%s: %w", op, repository.ErrUserNotFound)
+		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
