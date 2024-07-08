@@ -59,7 +59,38 @@ func New(cfg *config.Storage) (*Storage, error) {
 }
 
 func (s *Storage) GetUsers(ctx context.Context, limit int, offset int, filter string) ([]models.User, error) {
-	panic("unimplemented")
+	const op = "repository.postgresGetUsers"
+
+	filter = "%" + filter + "%"
+
+	rows, err := s.pool.Query(ctx, `
+	SELECT id, name, surname, patronymic, address, passport_serie, passport_number 
+	FROM users 
+	WHERE name ILIKE $1 OR surname ILIKE $1 OR patronymic ILIKE $1 OR address ILIKE $1 OR CAST(passport_serie AS TEXT) ILIKE $1 OR CAST(passport_number AS TEXT) ILIKE $1 
+	ORDER BY id 
+	LIMIT $2 OFFSET $3
+	`, filter, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var user models.User
+		err = rows.Scan(&user.ID, &user.Name, &user.Surname, &user.Patronymic, &user.Address, &user.PassportSerie, &user.PassportNumber)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return users, nil
 }
 
 func (s *Storage) UpdateUser(ctx context.Context, fields []string, values []string) (*models.User, error) {

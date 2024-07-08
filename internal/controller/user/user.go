@@ -112,14 +112,14 @@ func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {
 		page = 1
 		log.Debug(`set "page" value to default`, slog.Int("page", page))
 	} else {
-		page, err := strconv.Atoi(p)
-		if err != nil || page < 1 {
+		parsedPage, err := strconv.Atoi(p)
+		if err != nil || parsedPage < 1 {
 			log.Error(`error while parsing "page" param`, sl.Error(err))
 			page = 1
 			log.Debug(`set "page" value to default`, slog.Int("page", page))
-		} else {
-			log.Debug(`validate "page" value`, slog.Int("page", page))
 		}
+		page = parsedPage
+		log.Debug(`validate "page" value`, slog.Int("page", page))
 	}
 
 	// Getting `filter` param
@@ -133,6 +133,8 @@ func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, resp.Err("Internal error"))
 		return
 	}
+
+	log.Debug("got all users successfully")
 
 	render.JSON(w, r, users)
 }

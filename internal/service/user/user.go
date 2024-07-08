@@ -9,8 +9,6 @@ import (
 	"time-tracker/internal/lib/logger/sl"
 	"time-tracker/internal/models"
 	"time-tracker/internal/repository"
-
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 var (
@@ -49,10 +47,7 @@ func (s *Service) CreateUser(ctx context.Context, passportSerie int, passportNum
 func (s *Service) GetUsers(ctx context.Context, page int, filter string) ([]models.User, error) {
 	const op = "service.user.GetUsers"
 
-	log := s.log.With(
-		slog.String("op", op),
-		slog.String("req_id", middleware.GetReqID(ctx)),
-	)
+	log := s.log.With(slog.String("op", op))
 
 	const limit = 10
 	offset := (page - 1) * limit
