@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"time-tracker/internal/config"
+	tasksHandler "time-tracker/internal/controller/task"
 	usersHandler "time-tracker/internal/controller/user"
 	"time-tracker/internal/lib/logger"
 	"time-tracker/internal/lib/logger/sl"
@@ -39,10 +40,11 @@ func main() {
 
 	// Service layer
 	usersService := usersService.New(storage, externalAPI, log)
-	taskService := taskService.New(storage, log)
+	tasksService := taskService.New(storage, log)
 
 	// Controllers layer
-	usersHandler := usersHandler.New(usersService, taskService, log)
+	usersHandler := usersHandler.New(usersService, log)
+	tasksHandler := tasksHandler.New(tasksService, log)
 
 	// Init router
 	r := chi.NewRouter()
@@ -54,6 +56,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	r.Route("/users", usersHandler.Register())
+	r.Route("/tasks", tasksHandler.Register())
 
 	// Init server
 	srv := http.Server{

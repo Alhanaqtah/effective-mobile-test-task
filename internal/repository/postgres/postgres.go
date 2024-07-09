@@ -113,6 +113,81 @@ func (s *Storage) GetTasksInRange(ctx context.Context, userUUID string, startDat
 	return tasks, nil
 }
 
+func (s *Storage) StartTask(ctx context.Context, uuid string) (*models.Task, error) {
+	const op = "repository.postgres.StartTask"
+
+	row := s.pool.QueryRow(ctx,
+		`UPDATE tasks
+		 SET done = false, done_at = NULL
+		 WHERE id = $1
+		 RETURNING id, title, description, done, created_at`,
+		uuid,
+	)
+
+	var task models.Task
+
+	var description sql.NullString
+
+	err := row.Scan(&task.ID, &task.Title, &description, &task.Done, &task.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if description.Valid {
+		task.Description = description.String
+	} else {
+		task.Description = ""
+	}
+
+	return &task, err
+}
+
+func (s *Storage) FinishTask(ctx context.Context, uuid string, doneAt time.Time) (*models.Task, error) {
+	const op = "repository.postgres.StartTask"
+
+	row := s.pool.QueryRow(ctx,
+		`UPDATE tasks
+		 SET done = true, done_at = $1
+		 WHERE id = $2
+		 RETURNING id, title, description, done, created_at, done_at`,
+		doneAt, uuid,
+	)
+
+	var task models.Task
+
+	var description sql.NullString
+
+	err := row.Scan(&task.ID, &task.Title, &description, &task.Done, &task.CreatedAt, &task.DoneAt)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if description.Valid {
+		task.Description = description.String
+	} else {
+		task.Description = ""
+	}
+
+	return &task, err
+}
+
+func (s *Storage) FindTask(ctx context.Context, uuid string) (*models.Task, error) {
+	const op = "repository.postgres.FindUser"
+
+	row := s.pool.QueryRow(ctx, `SELECT id FROM tasks WHERE id = $1`, uuid)
+
+	var task models.Task
+	err := row.Scan(&task.ID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("%s: %w", op, repository.ErrTaskNotFound)
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &task, nil
+}
+
 func (s *Storage) FindUser(ctx context.Context, passportSerie, passportNumber int) (*models.User, error) {
 	const op = "repository.postgres.FindUser"
 

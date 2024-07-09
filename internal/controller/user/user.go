@@ -1,4 +1,4 @@
-package handler
+package user
 
 import (
 	"context"
@@ -12,8 +12,7 @@ import (
 	"time-tracker/internal/lib/request"
 	resp "time-tracker/internal/lib/response"
 	"time-tracker/internal/models"
-	taskService "time-tracker/internal/service/task"
-	userService "time-tracker/internal/service/user"
+	service "time-tracker/internal/service/user"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -21,7 +20,7 @@ import (
 	uuidlib "github.com/google/uuid"
 )
 
-type UserService interface {
+type Service interface {
 	CreateUser(ctx context.Context, passportSerie, passportNumber int) (*models.User, error)
 	GetUsers(ctx context.Context, page int, filter string) ([]models.User, error)
 	UpdateUserInfo(ctx context.Context, userInfo *models.User) (*models.User, error)
@@ -33,16 +32,14 @@ type TaskService interface {
 }
 
 type Handler struct {
-	userService UserService
-	taskService TaskService
-	log         *slog.Logger
+	service Service
+	log     *slog.Logger
 }
 
-func New(userService UserService, taskService TaskService, log *slog.Logger) *Handler {
+func New(service Service, log *slog.Logger) *Handler {
 	return &Handler{
-		userService: userService,
-		taskService: taskService,
-		log:         log,
+		service: service,
+		log:     log,
 	}
 }
 
@@ -52,7 +49,6 @@ func (h *Handler) Register() func(r chi.Router) {
 		r.Get("/", h.getUsers)
 		r.Patch("/{uuid}", h.updateUser)
 		r.Delete("/{uuid}", h.deleteUser)
-		r.Get("/{user_id}/worklogs", h.getTasksInRange)
 	}
 }
 
@@ -99,9 +95,9 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userService.CreateUser(r.Context(), passportSerie, passportNumber)
+	user, err := h.service.CreateUser(r.Context(), passportSerie, passportNumber)
 	if err != nil {
-		if errors.Is(err, userService.ErrExists) {
+		if errors.Is(err, service.ErrExists) {
 			render.Status(r, http.StatusConflict)
 			render.JSON(w, r, resp.Err("User already exists"))
 			return
@@ -148,7 +144,7 @@ func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug("getting all users", slog.Int("page", page), slog.String("filter", filter))
 
-	users, err := h.userService.GetUsers(r.Context(), page, filter)
+	users, err := h.service.GetUsers(r.Context(), page, filter)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, resp.Err("Internal error"))
@@ -190,13 +186,13 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	// Set uuid from user
 	userInfo.ID = uuid
 
-	user, err := h.userService.UpdateUserInfo(r.Context(), &userInfo)
+	user, err := h.service.UpdateUserInfo(r.Context(), &userInfo)
 	if err != nil {
-		if errors.Is(err, userService.ErrUserNotFound) {
+		if errors.Is(err, service.ErrUserNotFound) {
 			render.Status(r, http.StatusNotFound)
 			render.JSON(w, r, resp.Err("User not found"))
 			return
-		} else if errors.Is(err, userService.ErrEmptyBody) {
+		} else if errors.Is(err, service.ErrEmptyBody) {
 			render.Status(r, http.StatusBadRequest)
 			render.JSON(w, r, resp.Err("Request body is empty"))
 			return
@@ -232,9 +228,9 @@ func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug("removing user", slog.String("user_uuid", uuid))
 
-	err = h.userService.RemoveUserByUUID(r.Context(), uuid)
+	err = h.service.RemoveUserByUUID(r.Context(), uuid)
 	if err != nil {
-		if errors.Is(err, userService.ErrUserNotFound) {
+		if errors.Is(err, service.ErrUserNotFound) {
 			render.Status(r, http.StatusNotFound)
 			render.JSON(w, r, resp.Err("User not found"))
 			return
@@ -249,55 +245,4 @@ func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, resp.Ok("User removed successfully"))
-}
-
-func (h *Handler) getTasksInRange(w http.ResponseWriter, r *http.Request) {
-	const op = "controller.user.getTaskInRange"
-
-	log := h.log.With(
-		slog.String("op", op),
-		slog.String("req_id", middleware.GetReqID(r.Context())),
-	)
-
-	userUUID := chi.URLParam(r, "user_id")
-	if userUUID == "" {
-		log.Error("missing user_id parameter")
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`'user_id' parameter is required`))
-		return
-	}
-
-	startDate := r.URL.Query().Get("start_date")
-	if startDate == "" {
-		log.Error("missing start_date parameter")
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`'start_date' parameter is required`))
-		return
-	}
-
-	endDate := r.URL.Query().Get("end_date")
-	if endDate == "" {
-		log.Error("missing end_date parameter")
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`'end_date' parameter is required`))
-		return
-	}
-
-	log.Debug("getting tasks in range", slog.String("user_id", userUUID), slog.String("start_date", startDate), slog.String("end_date", endDate))
-
-	tasks, err := h.taskService.GetTasksInRange(r.Context(), userUUID, startDate, endDate)
-	if err != nil {
-		if errors.Is(err, taskService.ErrInvalidDateRange) {
-			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, resp.Err("Invalid date range"))
-			return
-		}
-		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, resp.Err("Internal error"))
-		return
-	}
-
-	log.Debug("got tasks in range successfully")
-
-	render.JSON(w, r, tasks)
 }
