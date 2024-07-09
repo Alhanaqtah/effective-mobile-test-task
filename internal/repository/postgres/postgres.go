@@ -2,9 +2,11 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"time-tracker/internal/config"
 	"time-tracker/internal/models"
@@ -58,6 +60,74 @@ func New(cfg *config.Storage) (*Storage, error) {
 	m.Up()
 
 	return &Storage{pool: pool}, nil
+}
+
+func (s *Storage) GetTasksInRange(ctx context.Context, userUUID string, startDate, endDate time.Time) ([]models.Task, error) {
+	const op = "repository.postgres.GetTasksInRange"
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, title, description, done, created_at, done_at
+		FROM tasks 
+		WHERE user_id = $1 AND created_at >= $2 AND created_at <= $3
+		ORDER BY done DESC, done_at DESC
+	`, userUUID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	var tasks []models.Task
+	for rows.Next() {
+		var task models.Task
+
+		var description sql.NullString
+		var doneAt sql.NullTime
+
+		err := rows.Scan(&task.ID, &task.Title, &description, &task.Done, &task.CreatedAt, &doneAt)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		if description.Valid {
+			task.Description = description.String
+		} else {
+			task.Description = ""
+		}
+
+		if task.Done {
+			if doneAt.Valid {
+				duration := doneAt.Time.Sub(task.CreatedAt).Minutes()
+				task.Duration = &duration
+			} else {
+				task.Duration = nil
+			}
+		} else {
+			now := time.Now()
+			duration := now.Sub(task.CreatedAt).Minutes()
+			task.Duration = &duration
+		}
+
+		tasks = append(tasks, task)
+	}
+
+	return tasks, nil
+}
+
+func (s *Storage) FindUser(ctx context.Context, passportSerie, passportNumber int) (*models.User, error) {
+	const op = "repository.postgres.FindUser"
+
+	row := s.pool.QueryRow(ctx, `SELECT id FROM users WHERE passport_serie = $1 AND passport_number = $2`, passportSerie, passportNumber)
+
+	var user models.User
+	err := row.Scan(&user.ID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("%s: %w", op, repository.ErrUserNotFound)
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &user, nil
 }
 
 func (s *Storage) CreateUser(ctx context.Context, user *models.User) (*models.User, error) {

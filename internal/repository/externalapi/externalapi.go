@@ -2,11 +2,16 @@ package externalapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"time-tracker/internal/models"
-	"time-tracker/internal/repository"
+)
+
+var (
+	ErrBadRequest       = errors.New("bad request to external api")
+	ErrExternalAPIError = errors.New("external api internal error")
 )
 
 type PeopleInfoRepo struct {
@@ -34,10 +39,10 @@ func (p *PeopleInfoRepo) GetUserInfo(passportSerie, passportNumber int) (*models
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode != http.StatusBadRequest {
-			return nil, fmt.Errorf("%s: %d", op, repository.ErrBadRequest)
+			return nil, fmt.Errorf("%s: %w", op, ErrBadRequest)
 		}
 		if resp.StatusCode != http.StatusInternalServerError {
-			return nil, fmt.Errorf("%s: %d", op, repository.ErrExternalAPIError)
+			return nil, fmt.Errorf("%s: %w", op, ErrExternalAPIError)
 		}
 	}
 

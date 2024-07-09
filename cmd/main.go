@@ -15,6 +15,7 @@ import (
 	"time-tracker/internal/lib/logger/sl"
 	"time-tracker/internal/repository/externalapi"
 	storage "time-tracker/internal/repository/postgres"
+	taskService "time-tracker/internal/service/task"
 	usersService "time-tracker/internal/service/user"
 
 	"github.com/go-chi/chi/middleware"
@@ -38,9 +39,10 @@ func main() {
 
 	// Service layer
 	usersService := usersService.New(storage, externalAPI, log)
+	taskService := taskService.New(storage, log)
 
 	// Controllers layer
-	usersHandler := usersHandler.New(usersService, log)
+	usersHandler := usersHandler.New(usersService, taskService, log)
 
 	// Init router
 	r := chi.NewRouter()

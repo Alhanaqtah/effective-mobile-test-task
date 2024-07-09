@@ -22,6 +22,7 @@ type Storage interface {
 	UpdateUser(ctx context.Context, fields []string, values []string) (*models.User, error)
 	GetUsers(ctx context.Context, limit, offset int, filter string) ([]models.User, error)
 	CreateUser(ctx context.Context, user *models.User) (*models.User, error)
+	FindUser(ctx context.Context, passportSerie, passportNumber int) (*models.User, error)
 }
 
 type ExternalAPI interface {
@@ -46,6 +47,17 @@ func (s *Service) CreateUser(ctx context.Context, passportSerie, passportNumber 
 	const op = "service.user.CreateUser"
 
 	log := s.log.With(slog.String("op", op))
+
+	log.Debug("checking if user already exists")
+
+	_, err := s.storage.FindUser(ctx, passportSerie, passportNumber)
+	if err != nil && !errors.Is(err, repository.ErrUserNotFound) {
+		log.Error("failed to find user in storage", sl.Error(err))
+		return nil, err
+	}
+
+	log.Debug("checking finished")
+	log.Debug("starting to create new user")
 
 	u, err := s.externalAPI.GetUserInfo(passportSerie, passportNumber)
 	if err != nil {
