@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -19,10 +20,16 @@ import (
 	taskService "time-tracker/internal/service/task"
 	usersService "time-tracker/internal/service/user"
 
+	_ "time-tracker/docs"
+
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
+// @title Time Tracker API
+// @version 1.0
+// @description Test task for Effective-mobile.
 func main() {
 	cfg := config.MustLoad()
 
@@ -57,6 +64,15 @@ func main() {
 
 	r.Route("/users", usersHandler.Register())
 	r.Route("/tasks", tasksHandler.Register())
+
+	// Swagger UI docs
+	r.Get("/docs/*", httpSwagger.Handler(
+		httpSwagger.URL(fmt.Sprintf("http://%s:%s/docs/swagger.json", cfg.Server.Host, cfg.Server.Port)),
+	))
+
+	r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "docs/swagger.json")
+	})
 
 	// Init server
 	srv := http.Server{

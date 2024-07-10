@@ -10,7 +10,7 @@ import (
 
 	"time-tracker/internal/lib/logger/sl"
 	"time-tracker/internal/lib/request"
-	resp "time-tracker/internal/lib/response"
+	"time-tracker/internal/lib/response"
 	"time-tracker/internal/models"
 	service "time-tracker/internal/service/user"
 
@@ -52,6 +52,17 @@ func (h *Handler) Register() func(r chi.Router) {
 	}
 }
 
+// @Summary Создание нового пользователя
+// @Description Создает нового пользователя по паспортным данным
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param CreateUser body request.CreateUser true "Данные для создания пользователя"
+// @Success 201 {object} models.User "Пользователь создан успешно"
+// @Failure 400 {object} response.Response "Некорректные данные запроса"
+// @Failure 409 {object} response.Response "Пользователь уже существует"
+// @Failure 500 {object} response.Response "Внутренняя ошибка сервера"
+// @Router /users [post]
 func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.user.createUser"
 
@@ -64,14 +75,14 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	if err := render.DecodeJSON(r.Body, &credentials); err != nil {
 		log.Error("failed to decode request body", sl.Error(err))
 		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, resp.Err("Internal Error"))
+		render.JSON(w, r, response.Err("Internal Error"))
 		return
 	}
 
 	if credentials.PassportNumber == "" {
 		log.Debug("request body is empty")
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err("Request body is empty"))
+		render.JSON(w, r, response.Err("Request body is empty"))
 		return
 	}
 
@@ -83,7 +94,7 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("failed to get passport serie", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err("Invalid passport serie"))
+		render.JSON(w, r, response.Err("Invalid passport serie"))
 		return
 	}
 
@@ -91,7 +102,7 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("failed to get passport number", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err("Invalid passport number"))
+		render.JSON(w, r, response.Err("Invalid passport number"))
 		return
 	}
 
@@ -99,11 +110,11 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, service.ErrExists) {
 			render.Status(r, http.StatusConflict)
-			render.JSON(w, r, resp.Err("User already exists"))
+			render.JSON(w, r, response.Err("User already exists"))
 			return
 		} else {
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, resp.Err("Internal error"))
+			render.JSON(w, r, response.Err("Internal error"))
 			return
 		}
 	}
@@ -114,6 +125,16 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, user)
 }
 
+// @Summary Получить пользователей
+// @Description Получить список пользователей с возможностью фильтрации и пагинации
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param page query int false "Номер страницы" default(1)
+// @Param filter query string false "Строка фильтра"
+// @Success 200 {array} models.User
+// @Failure 500 {object} response.Response "Внутренняя ошибка"
+// @Router /users [get]
 func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.user.getUsers"
 
@@ -147,7 +168,7 @@ func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.service.GetUsers(r.Context(), page, filter)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, resp.Err("Internal error"))
+		render.JSON(w, r, response.Err("Internal error"))
 		return
 	}
 
@@ -156,6 +177,18 @@ func (h *Handler) getUsers(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, users)
 }
 
+// @Summary Обновить пользователя
+// @Description Обновить информацию о пользователе по UUID
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param uuid path string true "UUID пользователя"
+// @Param user body models.User true "Информация о пользователе"
+// @Success 200 {object} models.User
+// @Failure 400 {object} response.Response "Неверный формат UUID или пустое тело запроса"
+// @Failure 404 {object} response.Response "Пользователь не найден"
+// @Failure 500 {object} response.Response "Внутренняя ошибка"
+// @Router /users/{uuid} [put]
 func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.user.updateUser"
 
@@ -170,7 +203,8 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("invalid userUUID", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`invalid user uuid format`))
+		render.JSON(w, r, response.Err(`invalid user uuid format`))
+		return
 	}
 
 	log.Debug("patching user info", slog.String("user_uuid", uuid))
@@ -179,7 +213,7 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	if err := render.DecodeJSON(r.Body, &userInfo); err != nil {
 		log.Error("failed to decode request body", sl.Error(err))
 		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, resp.Err("Internal Error"))
+		render.JSON(w, r, response.Err("Internal Error"))
 		return
 	}
 
@@ -190,15 +224,15 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			render.Status(r, http.StatusNotFound)
-			render.JSON(w, r, resp.Err("User not found"))
+			render.JSON(w, r, response.Err("User not found"))
 			return
 		} else if errors.Is(err, service.ErrEmptyBody) {
 			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, resp.Err("Request body is empty"))
+			render.JSON(w, r, response.Err("Request body is empty"))
 			return
 		} else {
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, resp.Err("Internal error"))
+			render.JSON(w, r, response.Err("Internal error"))
 			return
 		}
 	}
@@ -209,6 +243,17 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, user)
 }
 
+// @Summary Удалить пользователя
+// @Description Удалить пользователя по UUID
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param uuid path string true "UUID пользователя"
+// @Success 200 {object} response.Response "Пользователь успешно удалён"
+// @Failure 400 {object} response.Response "Неверный формат UUID"
+// @Failure 404 {object} response.Response "Пользователь не найден"
+// @Failure 500 {object} response.Response "Внутренняя ошибка"
+// @Router /users/{uuid} [delete]
 func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.user.deleteUser"
 
@@ -223,7 +268,8 @@ func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("invalid userUUID", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`invalid user uuid format`))
+		render.JSON(w, r, response.Err(`invalid user uuid format`))
+		return
 	}
 
 	log.Debug("removing user", slog.String("user_uuid", uuid))
@@ -232,11 +278,11 @@ func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			render.Status(r, http.StatusNotFound)
-			render.JSON(w, r, resp.Err("User not found"))
+			render.JSON(w, r, response.Err("User not found"))
 			return
 		} else {
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, resp.Err("Internal error"))
+			render.JSON(w, r, response.Err("Internal error"))
 			return
 		}
 	}
@@ -244,5 +290,5 @@ func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 	log.Debug("user removed succesfully", slog.String("user_uuid", uuid))
 
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, resp.Ok("User removed successfully"))
+	render.JSON(w, r, response.Ok("User removed successfully"))
 }

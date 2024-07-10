@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"time-tracker/internal/lib/logger/sl"
-	resp "time-tracker/internal/lib/response"
+	"time-tracker/internal/lib/response"
 	"time-tracker/internal/models"
 	service "time-tracker/internal/service/task"
 
@@ -43,6 +43,18 @@ func (h *Handler) Register() func(r chi.Router) {
 	}
 }
 
+// @Summary Получить задачи в диапазоне дат
+// @Description Возвращает задачи пользователя в заданном диапазоне дат
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Param user_uuid path string true "UUID пользователя"
+// @Param start_date query string true "Дата начала в формате YYYY-MM-DD"
+// @Param end_date query string true "Дата окончания в формате YYYY-MM-DD"
+// @Success 200 {array} models.Task "Список задач"
+// @Failure 400 {object} response.Response "Некорректный запрос"
+// @Failure 500 {object} response.Response "Внутренняя ошибка"
+// @Router /users/{user_uuid}/tasks [get]
 func (h *Handler) getTasksInRange(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.user.getTaskInRange"
 
@@ -51,11 +63,11 @@ func (h *Handler) getTasksInRange(w http.ResponseWriter, r *http.Request) {
 		slog.String("req_id", middleware.GetReqID(r.Context())),
 	)
 
-	userUUID := chi.URLParam(r, "user_id")
+	userUUID := chi.URLParam(r, "user_uuid")
 	if userUUID == "" {
 		log.Error("missing user_id parameter")
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`'user_id' parameter is required`))
+		render.JSON(w, r, response.Err(`'user_id' parameter is required`))
 		return
 	}
 
@@ -63,7 +75,7 @@ func (h *Handler) getTasksInRange(w http.ResponseWriter, r *http.Request) {
 	if startDate == "" {
 		log.Error("missing start_date parameter")
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`'start_date' parameter is required`))
+		render.JSON(w, r, response.Err(`'start_date' parameter is required`))
 		return
 	}
 
@@ -71,7 +83,7 @@ func (h *Handler) getTasksInRange(w http.ResponseWriter, r *http.Request) {
 	if endDate == "" {
 		log.Error("missing end_date parameter")
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`'end_date' parameter is required`))
+		render.JSON(w, r, response.Err(`'end_date' parameter is required`))
 		return
 	}
 
@@ -81,11 +93,11 @@ func (h *Handler) getTasksInRange(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidDateRange) {
 			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, resp.Err("Invalid date range"))
+			render.JSON(w, r, response.Err("Invalid date range"))
 			return
 		}
 		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, resp.Err("Internal error"))
+		render.JSON(w, r, response.Err("Internal error"))
 		return
 	}
 
@@ -94,6 +106,17 @@ func (h *Handler) getTasksInRange(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, tasks)
 }
 
+// @Summary Запуск задачи
+// @Description Запускает задачу по ее UUID
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Param task_id path string true "UUID задачи"
+// @Success 200 {object} models.Task "Запущенная задача"
+// @Failure 400 {object} response.Response "Неверный формат UUID или пустое тело запроса"
+// @Failure 404 {object} response.Response "Задача не найдена"
+// @Failure 500 {object} response.Response "Внутренняя ошибка сервера"
+// @Router /tasks/{task_uuid} [post]
 func (h *Handler) startTask(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.task.startTask"
 
@@ -105,7 +128,8 @@ func (h *Handler) startTask(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("invalid userUUID", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`invalid user uuid format`))
+		render.JSON(w, r, response.Err(`invalid user uuid format`))
+		return
 	}
 
 	log.Debug("starting task", slog.String("uuid", uuid))
@@ -114,11 +138,11 @@ func (h *Handler) startTask(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, service.ErrTaskNotFound) {
 			render.Status(r, http.StatusNotFound)
-			render.JSON(w, r, resp.Err("Task not found"))
+			render.JSON(w, r, response.Err("Task not found"))
 			return
 		}
 		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, resp.Err("Internal error"))
+		render.JSON(w, r, response.Err("Internal error"))
 		return
 	}
 
@@ -126,6 +150,17 @@ func (h *Handler) startTask(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, task)
 }
 
+// @Summary Завершение задачи
+// @Description Отметить задачу как завершенную
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Param task_id path string true "ID задачи"
+// @Success 200 {object} models.Task
+// @Failure 400 {object} response.Response "Неверный формат UUID"
+// @Failure 404 {object} response.Response "Задача не найдена"
+// @Failure 500 {object} response.Response "Внутренняя ошибка"
+// @Router /tasks/{task_id}/finish [post]
 func (h *Handler) finishTask(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.task.finishTask"
 
@@ -137,7 +172,8 @@ func (h *Handler) finishTask(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error("invalid userUUID", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, resp.Err(`invalid user uuid format`))
+		render.JSON(w, r, response.Err(`invalid user uuid format`))
+		return
 	}
 
 	log.Debug("finishing task", slog.String("uuid", uuid))
@@ -146,11 +182,11 @@ func (h *Handler) finishTask(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, service.ErrTaskNotFound) {
 			render.Status(r, http.StatusNotFound)
-			render.JSON(w, r, resp.Err("Task not found"))
+			render.JSON(w, r, response.Err("Task not found"))
 			return
 		}
 		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, resp.Err("Internal error"))
+		render.JSON(w, r, response.Err("Internal error"))
 		return
 	}
 
